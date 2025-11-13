@@ -23,11 +23,9 @@ Use this to help engineering teams quickly identify and remediate Pod Security S
    - [2. Configure an OpenAI API key](#2-configure-an-openai-api-key-or-other-provider)  
    - [3. Install kagent (Controller + UI)](#3-install-kagent-controller---ui)  
 4. [Build & Deploy the PSS MCP Server](#build--deploy-the-pss-mcp-server)  
-   - [1. Scaffold the Project](#1-scaffold-if-starting-from-scratch)  
-   - [2. Implement the PSS Analysis Tool](#2-implement-the-pss-analysis-tool)  
-   - [3. Build and Load the Image (Kind)](#3-build-and-load-the-image-kind)  
-   - [4. Configure `kmcp.yaml` for kagent](#4-configure-kmcpyaml-for-kagent)  
-   - [5. Deploy the MCP Server](#5-deploy-the-mcp-server)  
+   - [1. Build and Load the Image (Kind)](#3-build-and-load-the-image-kind)  
+   - [2. Configure `kmcp.yaml` for kagent](#4-configure-kmcpyaml-for-kagent)  
+   - [3. Deploy the MCP Server](#5-deploy-the-mcp-server)  
 5. [Create the `pss-remediator` Agent](#create-the-pss-remediator-agent)  
 6. [Demo: Scan a Deliberately Bad Deployment](#demo-scan-a-deliberately-bad-deployment)  
    - [1. Deploy a PSS-Violating Workload](#1-deploy-a-pss-violating-workload)  
@@ -113,7 +111,7 @@ helm install kagent-crds oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
 Verify CRDs:
 
 ```bash
-kubectl get crd agents.kagent.dev modelconfigs.kagent.dev remotemcpservers.kagent.dev
+kubectl get crd agents.kagent.dev modelconfigs kagent.dev remotemcpservers.kagent.dev
 ```
 
 You should see them listed.
@@ -122,19 +120,7 @@ You should see them listed.
 
 > **Important**  
 > - The key must be an **API key** from the OpenAI platform, **not** a ChatGPT token.  
-> - The project/org that key belongs to must have **API credits / pay-as-you-go** enabled and a **non-zero usage limit**.
 
-Quick sanity check from your shell:
-
-```bash
-export OPENAI_API_KEY="sk-...your-key..."
-
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
-```
-
-You should get a JSON list of models.  
-If you get `insufficient_quota`, you need to set up billing / credits in the OpenAI dashboard.
 
 ### 3. Install kagent (Controller + UI)
 
@@ -158,77 +144,7 @@ That’s the built-in K8s tool server used for `k8s_get_resources`, etc.
 
 ---
 
-## Build & Deploy the PSS MCP Server
-
-This MCP server is a **FastMCP-based Python service** that exposes a tool like `analyze_manifest_for_pss`.
-
-### 1. Scaffold (if starting from scratch)
-
-From a working directory:
-
-```bash
-kmcp init python pss-mcp-server
-cd pss-mcp-server
-```
-
-You’ll get something like:
-
-```text
-pss-mcp-server/
-  src/
-    main.py
-  kmcp.yaml
-  pyproject.toml
-  Dockerfile
-```
-
-### 2. Implement the PSS Analysis Tool
-
-In `src/main.py` (or another module wired into the same FastMCP instance):
-
-```python
-from fastmcp import FastMCP, tool
-import yaml
-from typing import Any, Dict, List, Literal
-
-mcp = FastMCP("pss-mcp-server")
-
-@tool
-def analyze_manifest_for_pss(
-    manifest_yaml: str,
-    profile: Literal["baseline", "restricted"] = "restricted",
-) -> Dict[str, Any]:
-    """
-    Analyze a Kubernetes Pod/controller manifest for Pod Security Standards
-    (baseline/restricted) and return a list of issues with suggested patches.
-    """
-    # 1) Parse YAML
-    # 2) Extract podSpec(s) from Pod/Deployment/DaemonSet/StatefulSet/Job/CronJob
-    # 3) Run PSS checks (hostNetwork, hostPath, privileged, caps, sysctls, etc.)
-    # 4) Return a structured JSON result
-    all_issues: List[Dict[str, Any]] = []
-
-    # ... your PSS checking logic goes here ...
-
-    return {
-        "profile": profile,
-        "issueCount": len(all_issues),
-        "issues": all_issues,
-    }
-
-if __name__ == "__main__":
-    mcp.run()
-```
-
-Verify the tool is visible using the MCP Inspector:
-
-```bash
-kmcp run --project-dir .
-```
-
-Then, in the Inspector UI → **Tools → List Tools**, you should see the `analyze_manifest_for_pss` tool.
-
-### 3. Build and Load the Image (Kind)
+### 2. Build and Load the Image (Kind)
 
 For a local Kind cluster:
 
@@ -243,7 +159,7 @@ Now the Kind cluster has the image `pss-mcp-server:latest` available.
 > **If using a registry instead of Kind:**  
 > Build and `docker push` to something like `ghcr.io/<org>/pss-mcp-server:<tag>` and update the image reference below.
 
-### 4. Configure `kmcp.yaml` for kagent
+### 3. Configure `kmcp.yaml` for kagent
 
 Edit `kmcp.yaml` so the `MCPServer` metadata matches what the Agent will reference:
 
@@ -262,10 +178,10 @@ spec:
   transportType: "stdio"
 ```
 
-### 5. Deploy the MCP Server
+### 4. Deploy the MCP Server
 
 ```bash
-kmcp deploy --file kmcp.yaml --image pss-mcp-server:latest
+kmcp deploy --file pss-mcp-server.yaml --image pss-mcp-server:latest
 ```
 
 Verify:
