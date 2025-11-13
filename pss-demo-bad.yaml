@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pss-demo-bad
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pss-demo-bad
+  template:
+    metadata:
+      labels:
+        app: pss-demo-bad
+    spec:
+      hostNetwork: true          # PSS violation
+      containers:
+        - name: bad-nginx
+          image: nginx:1.27
+          securityContext:
+            privileged: true     # PSS violation
+            allowPrivilegeEscalation: true
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN", "SYS_TIME"]
+          ports:
+            - containerPort: 80
+              hostPort: 80       # now valid, still bad from PSS POV
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log
+      volumes:
+        - name: logs
+          hostPath:              # PSS violation
+            path: /var/log
+            type: Directory
+

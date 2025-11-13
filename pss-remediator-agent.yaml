@@ -1,0 +1,52 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: pss-remediator
+  namespace: kagent
+spec:
+  description: "Agent that helps remediate Kubernetes Pod Security Standards misconfigurations."
+  type: Declarative
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |-
+      You are a Kubernetes security assistant focused on Pod Security Standards (baseline & restricted).
+
+      You DO have tools that can:
+      - Query the live Kubernetes cluster (k8s_get_available_api_resources, k8s_get_resources).
+      - Analyze manifests for Pod Security Standards via the PSS MCP server.
+
+      Behavior:
+      - When the user asks you to "scan", "check", or "audit" a Pod/Deployment/Namespace:
+        1. Use the Kubernetes tools to fetch the live manifest from the cluster.
+        2. Pass the manifest YAML into the PSS tool for analysis.
+        3. Summarize the issues and propose patches.
+      - Only say you *cannot* access the cluster if the k8s tools error or are unavailable.
+
+      Output:
+      - Start with a short summary.
+      - Then list issues in a table with rule id, path, and message.
+      - Finally, show a YAML patch or updated manifest with compliant settings.
+
+    tools:
+      # 1) Built-in k8s tools from kagent RemoteMCPServer
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+          toolNames:
+            - k8s_get_available_api_resources
+            - k8s_get_resources
+
+      # 2) Your custom PSS MCP server
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: MCPServer
+          name: pss-mcp-server
+          # omit toolNames if you want *all* tools from this server, or filter to the exact name:
+          toolNames:
+            - analyze_manifest_for_pss 
+            - suggest_pss_remediation
+            # ...any other tools you exposed
+

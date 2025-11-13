@@ -1,0 +1,14 @@
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: pss-mcp-server        # MUST match what the Agent uses
+  namespace: kagent           # MUST match the Agent namespace
+spec:
+  # Minimal example – adjust to your actual image / command
+  deployment:
+    image: pss-mcp-server:latest   # e.g. ghcr.io/you/pss-mcp-server:latest
+    port: 3000
+    cmd: "python"
+    args: ["src/main.py"]       # or whatever your server entrypoint is
+  transportType: "stdio"        # or "http" if you built it that way
+

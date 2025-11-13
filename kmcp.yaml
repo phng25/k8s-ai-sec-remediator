@@ -1,0 +1,21 @@
+name: pss-mcp-server
+framework: fastmcp-python
+version: 0.1.0
+description: MCP server built with fastmcp-python
+secrets:
+    local:
+        enabled: false
+        provider: env
+        file: .env.local
+    production:
+        enabled: false
+        provider: kubernetes
+        secretName: pss-mcp-server-secrets-production
+        namespace: default
+    staging:
+        enabled: false
+        provider: kubernetes
+        secretName: pss-mcp-server-secrets-staging
+        namespace: default
+created_at: 2025-11-13T10:34:48.228329133-05:00
+updated_at: 2025-11-13T10:34:48.442041478-05:00
